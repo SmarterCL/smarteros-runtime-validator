@@ -86,7 +86,6 @@ export default function ScoutPage() {
 
   const { messages, setMessages, sendMessage, status, regenerate } = useChat({
     id: scoutId,
-    initialMessages: [], // Prevent automatic fetching
     onFinish: () => {
       // Reload current scout after each message to update status indicators
       loadCurrentScout();
@@ -95,6 +94,9 @@ export default function ScoutPage() {
       console.error("Chat error:", error);
     },
   });
+
+  // Loading state: true when submitted OR streaming
+  const isLoading = status === "submitted" || status === "streaming";
 
   // Get user's location using browser geolocation API
   useEffect(() => {
@@ -408,11 +410,13 @@ export default function ScoutPage() {
           messagesLoaded ? (
             <div className="max-w-4xl mx-auto p-24 relative w-full h-full flex flex-col">
               <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-8">
-                <Conversation className="overflow-hidden">
-                  <ConversationContent>
-                    {messages.length === 0 && status === "submitted" ? (
-                      <div className="flex-1 flex items-center justify-center text-gray-500">
-                        <Loader />
+                <Conversation className="overflow-hidden scroll-smooth [&::-webkit-scrollbar]:w-8 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
+                  <ConversationContent className="pb-24">
+                    {messages.length === 0 ? (
+                      <div className="flex-1 flex items-center justify-center text-gray-500 py-48">
+                        <p className="text-body-medium text-gray-400">
+                          Start by describing what you want to scout...
+                        </p>
                       </div>
                     ) : (
                       <>
@@ -443,7 +447,8 @@ export default function ScoutPage() {
                                       {isAssistant &&
                                         isLastPart &&
                                         isLastMessage &&
-                                        currentScout && (
+                                        currentScout &&
+                                        !isLoading && (
                                           <div className="mt-16 mb-8">
                                             <ScoutChecklistTool
                                               currentScout={currentScout}
@@ -451,26 +456,28 @@ export default function ScoutPage() {
                                           </div>
                                         )}
 
-                                      {isAssistant && isLastPart && (
-                                        <MessageActions className="mt-8">
-                                          <MessageAction
-                                            onClick={() => regenerate()}
-                                            label="Retry"
-                                          >
-                                            <RefreshCcwIcon className="w-12 h-12" />
-                                          </MessageAction>
-                                          <MessageAction
-                                            onClick={() =>
-                                              navigator.clipboard.writeText(
-                                                part.text,
-                                              )
-                                            }
-                                            label="Copy"
-                                          >
-                                            <CopyIcon className="w-12 h-12" />
-                                          </MessageAction>
-                                        </MessageActions>
-                                      )}
+                                      {isAssistant &&
+                                        isLastPart &&
+                                        !isLoading && (
+                                          <MessageActions className="mt-8">
+                                            <MessageAction
+                                              onClick={() => regenerate()}
+                                              label="Retry"
+                                            >
+                                              <RefreshCcwIcon className="w-12 h-12" />
+                                            </MessageAction>
+                                            <MessageAction
+                                              onClick={() =>
+                                                navigator.clipboard.writeText(
+                                                  part.text,
+                                                )
+                                              }
+                                              label="Copy"
+                                            >
+                                              <CopyIcon className="w-12 h-12" />
+                                            </MessageAction>
+                                          </MessageActions>
+                                        )}
                                     </Fragment>
                                   );
                                 }
@@ -480,9 +487,6 @@ export default function ScoutPage() {
                             </div>
                           );
                         })}
-                        {messages.length > 0 && status === "submitted" && (
-                          <Loader />
-                        )}
                       </>
                     )}
                   </ConversationContent>
@@ -490,6 +494,17 @@ export default function ScoutPage() {
                 </Conversation>
 
                 <div className="mt-16">
+                  {/* Streaming indicator */}
+                  {isLoading && (
+                    <div className="flex items-center justify-center gap-8 mb-8">
+                      <div className="bg-white border border-gray-200 rounded-full px-12 py-6 shadow-sm flex items-center gap-8">
+                        <Loader size={14} />
+                        <span className="text-body-small text-gray-600">
+                          Setting up your scout...
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="relative rounded-8 border border-gray-200 bg-white overflow-hidden">
                     <PromptInput
                       onSubmit={handleSubmit}
@@ -569,8 +584,8 @@ export default function ScoutPage() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              <Loader />
+            <div className="flex-1 flex items-center justify-center">
+              <Loader size={24} />
             </div>
           )
         ) : (
