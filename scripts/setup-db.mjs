@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import { config } from 'dotenv';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 import { join } from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 import pg from 'pg';
 
 const { Client } = pg;
@@ -25,21 +25,12 @@ async function runMigrations() {
     await client.connect();
     console.log('🚀 Running database setup...\n');
 
-    // Run base migrations
-    const migrations = [
-      'supabase/migrations/00000000000000_initial_schema.sql',
-      'supabase/migrations/00000000000001_add_auth.sql',
-      'supabase/migrations/20251203000000_add_firecrawl_integration.sql',
-      'supabase/migrations/20251203100000_remove_notification_email.sql'
-    ];
-
-    for (const migrationPath of migrations) {
-      const sql = readFileSync(join(process.cwd(), migrationPath), 'utf8');
-      console.log(`📄 Running ${migrationPath.split('/').pop()}...`);
-
-      await client.query(sql);
-      console.log('✅ Success!\n');
-    }
+    // Run the consolidated schema migration
+    const migrationPath = 'supabase/migrations/00000000000000_schema.sql';
+    const sql = readFileSync(join(process.cwd(), migrationPath), 'utf8');
+    console.log('📄 Running schema migration...');
+    await client.query(sql);
+    console.log('✅ Schema created!\n');
 
     // Enable realtime
     console.log('🔄 Enabling realtime for execution tables...');
@@ -143,25 +134,6 @@ async function runMigrations() {
           console.log('   You may need to run this manually in SQL Editor:\n');
           console.log(`   SELECT vault.create_secret('${supabaseUrl}', 'project_url');`);
           console.log(`   SELECT vault.create_secret('your-service-role-key', 'service_role_key');\n`);
-        }
-
-        // Run the dispatcher migration
-        const dispatcherMigrationPath = 'supabase/migrations/20251202000000_add_scout_dispatcher.sql';
-        if (existsSync(join(process.cwd(), dispatcherMigrationPath))) {
-          console.log('📄 Running scout dispatcher migration...');
-          try {
-            const dispatcherSql = readFileSync(join(process.cwd(), dispatcherMigrationPath), 'utf8');
-            await client.query(dispatcherSql);
-            console.log('✅ Dispatcher migration complete!\n');
-          } catch (dispatcherError) {
-            // Check if it's just a "already exists" error
-            if (dispatcherError.message.includes('already exists')) {
-              console.log('✅ Dispatcher already configured!\n');
-            } else {
-              console.log('⚠️  Dispatcher migration warning:', dispatcherError.message);
-              console.log('   This may be okay if already configured.\n');
-            }
-          }
         }
 
         // Clean up old cron jobs and verify new ones
@@ -359,23 +331,36 @@ async function syncEdgeFunctionSecrets() {
 
     for (const { name, value } of secretsToSet) {
       try {
-        // Use execSync with the secret value - be careful not to log it
-        execSync(`npx supabase secrets set ${name}="${value.replace(/"/g, '\\"')}"`, {
-          stdio: 'pipe',
-          cwd: process.cwd(),
-        });
+        // Use spawnSync to avoid shell escaping issues with special characters in API keys
+        const result = spawnSync(
+          'npx',
+          ['supabase', 'secrets', 'set', `${name}=${value}`],
+          {
+            cwd: process.cwd(),
+            encoding: 'utf-8',
+            env: process.env,
+          }
+        );
+
+        if (result.status !== 0) {
+          throw new Error(result.stderr || result.stdout || 'Unknown error');
+        }
         console.log(`   ✅ ${name}`);
         successCount++;
       } catch (error) {
+        const errorOutput = error.message || String(error);
+
         // Check if it's a "not linked" error
-        if (error.message?.includes('not linked') || error.stderr?.toString().includes('not linked')) {
+        if (errorOutput.includes('not linked')) {
           console.log('⚠️  Supabase project not linked. Run this first:');
           console.log('   npx supabase link --project-ref <your-project-ref>\n');
           console.log('   Then run setup:db again to sync secrets.\n');
           return;
         }
-        failedSecrets.push(name);
+        failedSecrets.push({ name, error: errorOutput });
         console.log(`   ❌ ${name} - failed to set`);
+        // Print error details for debugging
+        console.log(`      Error: ${errorOutput.split('\n')[0]}`);
       }
     }
 
@@ -387,7 +372,7 @@ async function syncEdgeFunctionSecrets() {
 
     if (failedSecrets.length > 0) {
       console.log('⚠️  Some secrets failed to sync. Set them manually:');
-      failedSecrets.forEach(name => {
+      failedSecrets.forEach(({ name }) => {
         console.log(`   npx supabase secrets set ${name}=<value>`);
       });
       console.log('');

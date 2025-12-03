@@ -69,6 +69,15 @@ Then fill in your actual values in the `.env` file.
 
 ### 5. Run Database Setup
 
+First, link your Supabase project (required for syncing secrets):
+
+```bash
+bunx supabase login        # Login to Supabase CLI (one-time)
+bunx supabase link --project-ref <your-project-ref>  # Find ref in Supabase Dashboard URL
+```
+
+Then run the setup script:
+
 ```bash
 bun run setup:db  # or: npm run setup:db / pnpm run setup:db
 ```
@@ -81,6 +90,7 @@ This will:
 - Configure the **scalable dispatcher architecture** (pg_cron + pg_net + vault)
 - Automatically store your Supabase URL and service role key in the vault
 - Set up cron jobs for scout dispatching and cleanup
+- **Sync Edge Function secrets** from your `.env` file (OPENAI_API_KEY, FIRECRAWL_API_KEY, RESEND_API_KEY)
 
 **Note:** The setup script will check if the required extensions (`vector`, `pg_cron`, `pg_net`) are enabled. If not, follow the on-screen instructions to enable them in the Supabase Dashboard, then run the script again.
 
@@ -120,44 +130,34 @@ Open Scouts uses Supabase Auth for user authentication, supporting both email/pa
 Deploy the scout execution agent and email functions to Supabase Cloud:
 
 ```bash
-# Link your Supabase project (if not already linked)
-npx supabase link --project-ref your-project-ref
-
-# Deploy the main scout cron function
-npx supabase functions deploy scout-cron
-
-# Deploy the test email function (for testing email notifications)
-npx supabase functions deploy send-test-email
+bunx supabase functions deploy scout-cron
+bunx supabase functions deploy send-test-email
 ```
 
-Set the required secrets for the edge functions:
+**Note:** Secrets (OPENAI_API_KEY, FIRECRAWL_API_KEY, RESEND_API_KEY) are automatically synced when you run `setup:db`. If you need to update them manually:
 
 ```bash
-npx supabase secrets set OPENAI_API_KEY=sk-proj-...
-npx supabase secrets set FIRECRAWL_API_KEY=fc-...
-npx supabase secrets set RESEND_API_KEY=re_...
+bunx supabase secrets set OPENAI_API_KEY=sk-proj-...
 ```
-
-**Note:** The RESEND_API_KEY is optional. If not set, scouts will still run but email notifications will be skipped.
 
 ### 8. Set Up Resend (Email Notifications)
 
-To enable email notifications when scouts find results:
+Email notifications are sent to your account email when scouts find results.
 
 1. **Create a Resend account** at [resend.com](https://resend.com)
 2. **Get your API key** from the Resend dashboard
-3. **Set the secret** in Supabase:
+3. **Add to `.env`** and run `setup:db` again to sync, or set manually:
    ```bash
-   npx supabase secrets set RESEND_API_KEY=re_...
+   bunx supabase secrets set RESEND_API_KEY=re_...
    ```
+4. **Verify a custom domain** at [resend.com/domains](https://resend.com/domains) to send to any email
 
 **Important - Free Tier Limitations:**
-- On Resend's free tier without a verified domain, you can only send emails to your Resend account email address
-- To send to any email, verify a custom domain at [resend.com/domains](https://resend.com/domains)
-- Free tier includes 3,000 emails/month
+- Without a verified domain, Resend only sends to your Resend account email
+- Free tier includes 3,000 emails/month (100/day limit)
 
 **Testing Email Setup:**
-1. Go to **Settings** in the app and add your email address
+1. Go to **Settings** in the app
 2. Click **Send Test Email** to verify the configuration
 3. Check your inbox for the test email
 
@@ -244,16 +244,15 @@ Click the **"Run Now"** button on any scout page to trigger execution immediatel
 
 ### Email Notifications
 
-When scouts find results, you'll automatically receive email alerts:
+When scouts find results, you'll automatically receive email alerts at your account email:
 
-- **Configure**: Go to **Settings** and add your email address
 - **Automatic**: Emails are sent only when scouts successfully find results
 - **Rich Content**: Beautiful HTML emails with scout results and links
-- **Privacy**: Emails only send if you've set an email address (opt-in)
+- **Test**: Use the "Send Test Email" button in Settings to verify setup
 
 **Email Service**: Powered by Resend (free tier includes 3,000 emails/month)
 
-**Note:** On Resend's free tier without a verified domain, test emails can only be sent to your Resend account email. To send to any email address, verify a custom domain at [resend.com/domains](https://resend.com/domains).
+**Note:** On Resend's free tier without a verified domain, emails can only be sent to your Resend account email. Verify a custom domain at [resend.com/domains](https://resend.com/domains) to send to any email.
 
 ### Architecture
 

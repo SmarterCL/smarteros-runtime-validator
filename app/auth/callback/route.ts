@@ -18,23 +18,23 @@ export async function GET(request: Request) {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user?.id && user?.email) {
-        // Check if user already has a Firecrawl API key
+        // Check if user already has an active Firecrawl API key
         const { data: preferences } = await supabaseServer
           .from("user_preferences")
           .select("firecrawl_api_key, firecrawl_key_status")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
 
-        // Create Firecrawl API key if not already active
-        const needsKey = !preferences?.firecrawl_api_key ||
-          preferences?.firecrawl_key_status !== "active";
+        // Only create key if user doesn't have an active one
+        const hasActiveKey = preferences?.firecrawl_api_key &&
+          preferences?.firecrawl_key_status === "active";
 
-        if (needsKey) {
-          // Create the key asynchronously - don't block the redirect
-          // The key creation is idempotent, so it's safe to call multiple times
-          createFirecrawlKeyForUser(user.id, user.email).catch((err) => {
+        if (!hasActiveKey) {
+          try {
+            await createFirecrawlKeyForUser(user.id, user.email);
+          } catch (err) {
             console.error("[Auth Callback] Failed to create Firecrawl key:", err);
-          });
+          }
         }
       }
 

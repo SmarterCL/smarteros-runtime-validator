@@ -41,6 +41,7 @@ export default function SettingsPage() {
   const [firecrawlInfo, setFirecrawlInfo] = useState<FirecrawlInfo | null>(null);
   const [regeneratingKey, setRegeneratingKey] = useState(false);
   const [regenerateMessage, setRegenerateMessage] = useState("");
+  const [regenerateCooldown, setRegenerateCooldown] = useState(0); // seconds remaining
 
   // Load Firecrawl info
   useEffect(() => {
@@ -82,6 +83,17 @@ export default function SettingsPage() {
 
     loadPreferences();
   }, [user?.id]);
+
+  // Cooldown timer for regenerate button
+  useEffect(() => {
+    if (regenerateCooldown <= 0) return;
+
+    const timer = setInterval(() => {
+      setRegenerateCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [regenerateCooldown]);
 
   const sendTestEmail = async () => {
     setSendingTest(true);
@@ -125,7 +137,7 @@ export default function SettingsPage() {
   };
 
   const regenerateFirecrawlKey = async () => {
-    if (!user?.id || !user?.email) return;
+    if (!user?.id || !user?.email || regenerateCooldown > 0) return;
 
     setRegeneratingKey(true);
     setRegenerateMessage("");
@@ -142,8 +154,20 @@ export default function SettingsPage() {
 
       if (!response.ok) {
         setRegenerateMessage(data.error || "Failed to regenerate key");
+
+        // If rate limited (429), extract wait time and set cooldown
+        if (response.status === 429) {
+          const match = data.error?.match(/wait (\d+) seconds/);
+          if (match) {
+            setRegenerateCooldown(parseInt(match[1], 10));
+          } else {
+            setRegenerateCooldown(60); // Default cooldown
+          }
+        }
       } else {
-        setRegenerateMessage("API key regenerated successfully!");
+        setRegenerateMessage("Connected successfully!");
+        // Set cooldown after successful regeneration
+        setRegenerateCooldown(60);
         // Refresh the Firecrawl info
         setFirecrawlInfo({
           status: "active",
@@ -312,7 +336,7 @@ export default function SettingsPage() {
                         <div className="pt-8">
                           <Button
                             onClick={regenerateFirecrawlKey}
-                            disabled={regeneratingKey}
+                            disabled={regeneratingKey || regenerateCooldown > 0}
                             variant="secondary"
                             className="flex items-center gap-8"
                           >
@@ -320,6 +344,11 @@ export default function SettingsPage() {
                               <>
                                 <div className="animate-spin rounded-full h-16 w-16 border-2 border-black-alpha-32 border-t-transparent" />
                                 Connecting...
+                              </>
+                            ) : regenerateCooldown > 0 ? (
+                              <>
+                                <Clock className="w-16 h-16" />
+                                Wait {regenerateCooldown}s
                               </>
                             ) : (
                               <>
@@ -332,12 +361,12 @@ export default function SettingsPage() {
                           {regenerateMessage && (
                             <div
                               className={`flex items-start gap-8 mt-12 p-12 rounded-8 ${
-                                regenerateMessage.includes("success")
+                                regenerateMessage.includes("successfully")
                                   ? "bg-accent-forest/10 text-accent-forest border border-accent-forest/20"
                                   : "bg-accent-crimson/10 text-accent-crimson border border-accent-crimson/20"
                               }`}
                             >
-                              {regenerateMessage.includes("success") ? (
+                              {regenerateMessage.includes("successfully") ? (
                                 <Check className="w-16 h-16 mt-2 shrink-0" />
                               ) : (
                                 <AlertCircle className="w-16 h-16 mt-2 shrink-0" />
