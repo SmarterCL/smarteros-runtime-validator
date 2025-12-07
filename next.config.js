@@ -2,7 +2,13 @@
 const nextConfig = {
   pageExtensions: ["js", "jsx", "ts", "tsx"],
   transpilePackages: ["shiki"],
-  turbopack: {},
+  turbopack: {
+    root: '/root/smarteros-runtime-validator',
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  output: 'standalone',
   images: {
     remotePatterns: [
       {

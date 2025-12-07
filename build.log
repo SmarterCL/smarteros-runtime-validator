@@ -1,0 +1,55 @@
+
+> open-scouts@1.0.0 build
+> next build
+
+ ⚠ `eslint` configuration in next.config.js is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Unrecognized key(s) in object: 'eslint'
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /root/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /root/smarteros-runtime-validator/package-lock.json
+
+   ▲ Next.js 16.0.7 (Turbopack)
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 74s
+   Skipping validation of types
+   Collecting page data using 1 worker ...
+   Generating static pages using 1 worker (0/17) ...
+   Generating static pages using 1 worker (4/17) 
+   Generating static pages using 1 worker (8/17) 
+   Generating static pages using 1 worker (12/17) 
+ ✓ Generating static pages using 1 worker (17/17) in 3.4s
+   Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /[id]
+├ ○ /admin
+├ ƒ /api/admin
+├ ƒ /api/chat
+├ ƒ /api/firecrawl/regenerate
+├ ƒ /api/scout
+├ ƒ /api/scout/execute
+├ ƒ /api/send-test-email
+├ ƒ /api/test-scout
+├ ƒ /auth/callback
+├ ○ /login
+├ ○ /scout
+├ ƒ /scout/[id]
+├ ○ /scouts
+├ ○ /settings
+└ ○ /template
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
